@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import type { Metadata } from 'next'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { LucideIcon } from 'lucide-react'
 import type { Database } from '@/types/database'
 import {
   Flame,
@@ -14,13 +12,12 @@ import {
   BookOpen,
   Library as LibraryIcon,
   Medal,
-  PlayCircle,
-  Users,
-  BarChart3,
-  PlusCircle,
-  ShieldCheck,
-  UserPlus
+  PlayCircle
 } from 'lucide-react'
+
+// Modular Components
+import ManagerDashboard from '@/components/dashboard/ManagerDashboard'
+import { StatCard } from '@/components/dashboard/StatCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +35,6 @@ export default async function DashboardPage() {
     .single() as any)
 
   if (!profile) {
-    // If no profile yet, they must go through onboarding
     redirect('/onboarding')
   }
 
@@ -240,171 +236,6 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-async function ManagerDashboard({ role, profile, supabase }: { role: string; profile: { display_name: string; campus_id?: string }; supabase: SupabaseClient<Database> }) {
-  const isPoc = role === 'campus_poc'
-
-  // Fetch high-level stats
-  const [
-    { count: totalStudents },
-    { count: totalBooks },
-    { data: recentBooks }
-  ] = await Promise.all([
-    supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'student')
-      .filter('campus_id', isPoc ? 'eq' : 'neq', isPoc ? profile.campus_id : null),
-    supabase
-      .from('books')
-      .select('*', { count: 'exact', head: true })
-      .filter('campus_id', isPoc ? 'eq' : 'neq', isPoc ? profile.campus_id : null),
-    supabase
-      .from('books')
-      .select('id, title, author, cover_url, status')
-      .filter('campus_id', isPoc ? 'eq' : 'neq', isPoc ? profile.campus_id : null)
-      .order('created_at', { ascending: false })
-      .limit(4) as unknown as Promise<{ data: Database['public']['Tables']['books']['Row'][] }>
-  ])
-
-  return (
-    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-tight">
-          {role === 'admin' ? 'Global Command' : 'Campus Dashboard'}
-        </h1>
-        <p className="text-slate-400 text-lg flex items-center gap-2">
-          Signed in as {profile.display_name} ({role.replace('_', ' ').toUpperCase()})
-        </p>
-      </header>
-
-      {/* Admin/POC Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard
-          label="Community"
-          value={`${totalStudents ?? 0}`}
-          sub="Students enrolled"
-          icon={Users}
-          color="indigo"
-        />
-        <StatCard
-          label="Library"
-          value={`${totalBooks ?? 0}`}
-          sub="Total volumes"
-          icon={BookOpen}
-          color="purple"
-        />
-        <StatCard
-          label="System Status"
-          value="Healthy"
-          sub="All systems operational"
-          icon={ShieldCheck}
-          color="yellow"
-        />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <QuickAction
-          href="/poc/books"
-          label="Add New Book"
-          description="Upload EPUB & metadata"
-          icon={PlusCircle}
-        />
-        <QuickAction
-          href="/poc/students"
-          label="Student Progress"
-          description="View reading logs & XP"
-          icon={BarChart3}
-        />
-        {role === 'admin' && (
-          <>
-            <QuickAction
-              href="/admin/users"
-              label="User Roles"
-              description="Manage permissions"
-              icon={UserPlus}
-            />
-            <QuickAction
-              href="/admin/approvals"
-              label="Pending Approvals"
-              description="Verify campus requests"
-              icon={ShieldCheck}
-            />
-          </>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-2xl font-serif font-bold">Recently Added Books</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recentBooks?.map(book => (
-              <div key={book.id} className="flex items-center gap-4 p-4 rounded-3xl bg-card border border-border/50">
-                <div className="w-12 h-16 bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-white/5">
-                  {book.cover_url ? (
-                    <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
-                  ) : <BookOpen size={20} className="text-slate-600" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold truncate leading-tight">{book.title}</p>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">
-                    {book.status}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h2 className="text-2xl font-serif font-bold">Admin Tips</h2>
-          <div className="glass p-6 rounded-3xl border-white/5 text-sm text-slate-400 leading-relaxed italic">
-            Encourage students to reach a 7-day streak to unlock special community badges. Frequent uploads keep the library fresh!
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function QuickAction({ href, label, description, icon: Icon }: { href: string; label: string; description: string; icon: LucideIcon }) {
-  return (
-    <Link href={href} className="flex flex-col gap-3 p-6 rounded-3xl bg-card border border-border/50 hover:border-accent/40 hover:bg-accent/5 transition-all group">
-      <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all">
-        <Icon size={24} />
-      </div>
-      <div>
-        <p className="font-bold text-white leading-tight">{label}</p>
-        <p className="text-xs text-slate-500 mt-1">{description}</p>
-      </div>
-    </Link>
-  )
-}
-
-function StatCard({ label, value, sub, color, icon: Icon }: {
-  label: string
-  value: string
-  sub: string
-  color: 'indigo' | 'purple' | 'orange' | 'yellow'
-  icon: LucideIcon
-}) {
-  const colors = {
-    indigo: 'from-accent/20 to-indigo-600/5 border-indigo-700/30 text-accent',
-    purple: 'from-purple-600/20 to-purple-700/5 border-purple-700/30 text-purple-400',
-    orange: 'from-orange-600/20 to-orange-700/5 border-orange-700/30 text-orange-400',
-    yellow: 'from-yellow-600/20 to-yellow-700/5 border-yellow-700/30 text-yellow-500',
-  }
-
-  return (
-    <div className={`bg-gradient-to-br ${colors[color]} border rounded-3xl p-6 transition-all hover:scale-[1.02] hover:shadow-xl relative overflow-hidden group`}>
-      <Icon className="absolute -right-2 -bottom-2 w-20 h-20 opacity-5 group-hover:scale-125 transition-transform duration-500" />
-      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-extrabold mb-1">{label}</p>
-      <p className="text-3xl font-serif font-bold tracking-tight text-white">{value}</p>
-      <p className="text-xs text-slate-400 mt-2 font-medium">{sub}</p>
     </div>
   )
 }

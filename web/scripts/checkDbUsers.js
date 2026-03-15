@@ -35,7 +35,7 @@ async function checkUsers() {
     }
 
     console.log('--- Public Users Table ---')
-    console.table(users)
+    console.log(JSON.stringify(users, null, 2))
 
     const { data: authData, error: authError } = await supabase.auth.admin.listUsers()
 

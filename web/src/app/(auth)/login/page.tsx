@@ -61,9 +61,34 @@ export default function LoginPage() {
     })
   }
 
-  function fillDummy(email: string, password: string) {
-    setEmail(email)
-    setPassword(password)
+  async function quickLogin(account: typeof DUMMY_ACCOUNTS[0]) {
+    setEmail(account.email)
+    setPassword(account.password)
+    setError(null)
+    setLoading(true)
+
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: account.email,
+      password: account.password,
+    })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+
+    if (data?.session) {
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data.session),
+      })
+    }
+
+    router.push('/dashboard')
+    router.refresh()
   }
 
   return (
@@ -147,27 +172,34 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      {/* Dev-only dummy accounts */}
-      {isDev && (
-        <div className="mt-6 border border-yellow-500/30 bg-yellow-500/5 rounded-xl p-4">
-          <p className="text-yellow-400 text-xs font-semibold uppercase tracking-wider mb-3">
-            🧪 Test accounts (dev only)
-          </p>
-          <div className="flex gap-2">
-            {DUMMY_ACCOUNTS.map(account => (
-              <button
-                key={account.email}
-                type="button"
-                onClick={() => fillDummy(account.email, account.password)}
-                className="flex-1 py-1.5 px-3 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition border border-slate-600"
-              >
-                {account.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-slate-500 text-xs mt-2">Click to fill credentials, then press Sign in.</p>
+      {/* Quick Access/Dummy Accounts Section */}
+      <div className="mt-8 border-t border-slate-700 pt-6">
+        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 text-center">
+          Quick Access Identities
+        </p>
+        <div className="grid grid-cols-1 gap-2">
+          {DUMMY_ACCOUNTS.map(account => (
+            <button
+              key={account.email}
+              type="button"
+              disabled={loading}
+              onClick={() => quickLogin(account)}
+              className="group flex items-center justify-between py-3 px-4 bg-slate-800/40 hover:bg-indigo-600/10 border border-slate-700 hover:border-indigo-500/50 rounded-xl transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                  {account.label[0]}
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors">{account.label}</p>
+                  <p className="text-[10px] text-slate-500 font-mono">{account.email}</p>
+                </div>
+              </div>
+              <span className="text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Login →</span>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
