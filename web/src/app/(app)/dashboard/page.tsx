@@ -22,34 +22,14 @@ import {
   UserPlus
 } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'Dashboard — Readable' }
+export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Use a server-side service key so we can safely create a profile row when needed.
-  console.log('DASHBOARD: service role available', Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY))
   const serviceSupabase = await createClient({ useServiceRole: true }) as unknown as SupabaseClient<Database>
-
-  // Ensure the profile exists before displaying dashboard.
-  try {
-    const { error: upsertError } = await (serviceSupabase
-      .from('users')
-      .upsert(
-        {
-          id: user.id,
-          display_name: user.user_metadata?.full_name || user.user_metadata?.display_name || user.email || 'Reader',
-          username: user.email ? `${user.email.split('@')[0]}_${user.id.slice(0, 4)}` : user.id,
-        },
-        { onConflict: 'id' }
-      ) as any)
-    if (upsertError) throw upsertError
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('DASHBOARD: failed to upsert user profile', err)
-  }
 
   const { data: profile } = await (serviceSupabase
     .from('users')
@@ -57,7 +37,10 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single() as any)
 
-  if (!profile) redirect('/onboarding')
+  if (!profile) {
+    // If no profile yet, they must go through onboarding
+    redirect('/onboarding')
+  }
 
   const isAdmin = profile.role === 'admin'
   const isPoc = profile.role === 'campus_poc'
