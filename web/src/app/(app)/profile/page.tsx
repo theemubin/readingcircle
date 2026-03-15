@@ -8,7 +8,10 @@ export default async function ProfilePage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile, error } = await supabase
+  // Use a service role client so RLS doesn't prevent reading the user's profile.
+  const serviceSupabase = await createClient({ useServiceRole: true })
+
+  const { data: profile, error } = await serviceSupabase
     .from('users')
     .select('id, display_name, role')
     .eq('id', user.id)
@@ -21,7 +24,7 @@ export default async function ProfilePage() {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h1 className="text-2xl font-semibold text-white mb-4">Profile</h1>
-      <ProfileForm userId={profile.id} currentRole={profile.role} displayName={profile.display_name} />
+      <ProfileForm currentRole={profile.role} displayName={profile.display_name} />
     </div>
   )
 }

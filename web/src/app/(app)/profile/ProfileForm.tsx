@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 
 type Role = Database['public']['Enums']['user_role']
 
 interface ProfileFormProps {
-  userId: string
   currentRole: Role
   displayName: string
 }
@@ -18,7 +16,7 @@ const ROLES: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Admin' },
 ]
 
-export default function ProfileForm({ userId, currentRole, displayName }: ProfileFormProps) {
+export default function ProfileForm({ currentRole, displayName }: ProfileFormProps) {
   const [role, setRole] = useState<Role>(currentRole)
   const [status, setStatus] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -29,15 +27,15 @@ export default function ProfileForm({ userId, currentRole, displayName }: Profil
     setStatus(null)
     setSaving(true)
 
-    const supabase = createClient()
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    })
 
-    const { error } = await supabase
-      .from('users')
-      .update({ role })
-      .eq('id', userId)
-
-    if (error) {
-      setStatus(error.message)
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      setStatus(body.error ?? 'Failed to update role')
       setSaving(false)
       return
     }

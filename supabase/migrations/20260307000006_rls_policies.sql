@@ -37,7 +37,8 @@ $$;
 -- ─── USERS ────────────────────────────────────────────────
 create policy "Users can view non-blocked profiles" on public.users
   for select using (
-    not public.is_blocked(auth.uid(), id)
+    auth.uid() = id
+    or not public.is_blocked(auth.uid(), id)
   );
 
 create policy "Users update own profile" on public.users

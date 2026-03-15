@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 type Role = 'student' | 'campus_poc'
 
@@ -31,27 +30,27 @@ export default function OnboardingPage() {
   async function handleContinue() {
     setError(null)
     setLoading(true)
-    const supabase = createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/login')
+    const updatePayload: Record<string, unknown> = {
+      role: selectedRole,
+      invite_code: campusCode.trim() || undefined
+    }
+
+    if (selectedRole === 'campus_poc' && !campusCode.trim()) {
+      setError('A campus invite code is required for coordinators.')
+      setLoading(false)
       return
     }
 
-    const updatePayload: Record<string, unknown> = { role: selectedRole }
-    if (selectedRole === 'campus_poc' && campusCode.trim()) {
-      // Resolve campus_id from invite code — for now store as-is
-      updatePayload.campus_id = campusCode.trim()
-    }
+    const res = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatePayload),
+    })
 
-    const { error } = await supabase
-      .from('users')
-      .update(updatePayload)
-      .eq('id', user.id)
-
-    if (error) {
-      setError(error.message)
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      setError(body.error ?? 'Failed to update profile')
       setLoading(false)
       return
     }
@@ -70,11 +69,10 @@ export default function OnboardingPage() {
           <button
             key={role.value}
             onClick={() => setSelectedRole(role.value)}
-            className={`w-full text-left p-4 rounded-xl border-2 transition ${
-              selectedRole === role.value
-                ? 'border-indigo-500 bg-indigo-600/20'
-                : 'border-slate-600 bg-slate-700/40 hover:border-slate-500'
-            }`}
+            className={`w-full text-left p-4 rounded-xl border-2 transition ${selectedRole === role.value
+              ? 'border-indigo-500 bg-indigo-600/20'
+              : 'border-slate-600 bg-slate-700/40 hover:border-slate-500'
+              }`}
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">{role.emoji}</span>
@@ -90,21 +88,23 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      {selectedRole === 'campus_poc' && (
-        <div className="mb-4">
-          <label htmlFor="campusCode" className="block text-sm font-medium text-slate-300 mb-1">
-            Campus invite code
+      <div className="mb-6 space-y-4">
+        <div>
+          <label htmlFor="campusCode" className="block text-sm font-medium text-slate-300 mb-1.5 flex justify-between">
+            <span>Campus invite code</span>
+            {selectedRole === 'student' && <span className="text-[10px] text-slate-500 uppercase">Optional</span>}
+            {selectedRole === 'campus_poc' && <span className="text-[10px] text-indigo-400 uppercase">Required</span>}
           </label>
           <input
             id="campusCode"
             type="text"
             value={campusCode}
             onChange={e => setCampusCode(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-            placeholder="Enter code provided by admin"
+            className="w-full px-4 py-2.5 rounded-xl bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            placeholder={selectedRole === 'campus_poc' ? "Enter your POC invite code" : "Enter code to join your campus (optional)"}
           />
         </div>
-      )}
+      </div>
 
       {error && (
         <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 mb-4">

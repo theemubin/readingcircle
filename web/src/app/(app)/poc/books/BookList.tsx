@@ -10,9 +10,8 @@ type Book = {
   author: string | null
   cover_url: string | null
   status: string
-  epub_size_bytes: number | null
+  file_size: number | null
   created_at: string
-  genre: string[] | null
   language: string
 }
 
@@ -88,15 +87,14 @@ export default function BookList({ books }: Props) {
                 <p className="text-xs text-slate-400 mt-0.5">{book.language.toUpperCase()}</p>
               </td>
               <td className="px-4 py-3 text-slate-300 hidden md:table-cell">{book.author ?? '—'}</td>
-              <td className="px-4 py-3 text-slate-400 hidden lg:table-cell">{formatBytes(book.epub_size_bytes)}</td>
+              <td className="px-4 py-3 text-slate-400 hidden lg:table-cell">{formatBytes(book.file_size)}</td>
               <td className="px-4 py-3">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  book.status === 'published'
-                    ? 'bg-green-500/20 text-green-400'
-                    : book.status === 'draft'
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${book.status === 'published'
+                  ? 'bg-green-500/20 text-green-400'
+                  : book.status === 'draft'
                     ? 'bg-yellow-500/20 text-yellow-400'
                     : 'bg-slate-500/20 text-slate-400'
-                }`}>
+                  }`}>
                   {book.status}
                 </span>
               </td>

@@ -1,11 +1,10 @@
-'use client'
-
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReaderToolbar from './ReaderToolbar'
 import ReaderSettingsPanel from './ReaderSettingsPanel'
 import type { Database } from '@/types/database'
+import { ChevronLeft, ChevronRight, Loader2, BookOpen } from 'lucide-react'
 
 type Prefs = Database['public']['Tables']['reader_preferences']['Row'] | null
 
@@ -21,8 +20,8 @@ interface Props {
 }
 
 const DEFAULT_PREFS = {
-  font_family: 'Georgia',
-  font_size: 18,
+  font_family: 'Lora', // Updated default font to Lora
+  font_size: 19,
   line_spacing: 'normal' as const,
   theme: 'light' as const,
   margin_size: 60,
@@ -30,10 +29,10 @@ const DEFAULT_PREFS = {
 
 const LINE_SPACING_MAP = { compact: 1.4, normal: 1.7, relaxed: 2.0, spacious: 2.4 }
 const THEME_COLORS = {
-  light: { bg: '#ffffff', fg: '#1a1a1a', toolbar: '#f8f8f8', border: '#e5e5e5' },
-  sepia: { bg: '#f5efe0', fg: '#3d2b1f', toolbar: '#ede3ce', border: '#d4c4a8' },
-  dark:  { bg: '#1e1e2e', fg: '#cdd6f4', toolbar: '#181825', border: '#313244' },
-  night: { bg: '#0d0d0d', fg: '#d4d4d4', toolbar: '#0d0d0d', border: '#1f1f1f' },
+  light: { bg: '#ffffff', fg: '#1a1a1a', toolbar: '#f8fafc', border: '#e2e8f0' },
+  sepia: { bg: '#fbf5e9', fg: '#433422', toolbar: '#f4ead5', border: '#e6d9bf' },
+  dark: { bg: '#0f172a', fg: '#f1f5f9', toolbar: '#1e293b', border: '#334155' },
+  night: { bg: '#020617', fg: '#94a3b8', toolbar: '#020617', border: '#1e293b' },
 }
 
 export default function EpubReader({
@@ -87,7 +86,7 @@ export default function EpubReader({
     async function init() {
       if (!viewerRef.current) return
 
-      // Dynamic import (epubjs is browser-only)
+      // Dynamic import
       const ePub = (await import('epubjs')).default
       const book = ePub(epubUrl)
       bookRef.current = book
@@ -103,16 +102,14 @@ export default function EpubReader({
       await rendition.display(initialCfi ?? undefined)
       if (!destroyed) setLoading(false)
 
-      // TOC
       const nav = await book.loaded.navigation
       setTocItems(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (nav.toc ?? []).map((item: any) => ({ label: item.label?.trim(), href: item.href }))
       )
 
-      // Progress tracking
       book.ready.then(() => {
-        book.locations.generate(1600) // roughly 1 word per char
+        book.locations.generate(1600)
       })
 
       rendition.on('relocated', (location: { start: { cfi: string; percentage: number } }) => {
@@ -137,12 +134,10 @@ export default function EpubReader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epubUrl])
 
-  // ── Re-apply styles when prefs change ────────────────────
   useEffect(() => {
     if (renditionRef.current) applyStyles(renditionRef.current)
   }, [applyStyles])
 
-  // ── Session management ────────────────────────────────────
   async function saveProgress(cfi: string, pct: number) {
     if (!sessionIdRef.current) return
     const supabase = createClient()
@@ -167,16 +162,13 @@ export default function EpubReader({
       .eq('id', sessionIdRef.current)
   }
 
-  // ── Navigation ────────────────────────────────────────────
   function prevPage() { renditionRef.current?.prev() }
   function nextPage() { renditionRef.current?.next() }
-
   function navigateTo(href: string) {
     renditionRef.current?.display(href)
     setShowToc(false)
   }
 
-  // ── Prefs persistence ─────────────────────────────────────
   async function updatePrefs(newPrefs: typeof prefs) {
     setPrefs(newPrefs)
     const supabase = createClient()
@@ -188,10 +180,9 @@ export default function EpubReader({
 
   return (
     <div
-      className="flex flex-col h-screen"
-      style={{ background: theme.toolbar }}
+      className="flex flex-col h-screen overflow-hidden font-sans"
+      style={{ background: theme.bg }}
     >
-      {/* Toolbar */}
       <ReaderToolbar
         title={bookTitle}
         progress={progress}
@@ -202,23 +193,24 @@ export default function EpubReader({
         tocOpen={showToc}
       />
 
-      {/* Main area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* TOC drawer */}
         {showToc && (
           <div
-            className="w-72 border-r overflow-y-auto flex-shrink-0"
+            className="w-80 border-r overflow-y-auto flex-shrink-0 animate-in slide-in-from-left duration-300 z-40 shadow-2xl"
             style={{ background: theme.toolbar, borderColor: theme.border }}
           >
-            <p className="px-5 py-3 text-xs font-semibold uppercase tracking-wide opacity-60" style={{ color: theme.fg }}>
-              Table of Contents
-            </p>
-            <ul>
+            <div className="px-6 py-6 border-b" style={{ borderColor: theme.border }}>
+              <h2 className="text-[10px] font-bold uppercase tracking-widest opacity-60 flex items-center gap-2" style={{ color: theme.fg }}>
+                <BookOpen size={12} /> Table of Contents
+              </h2>
+            </div>
+            <ul className="py-2">
               {tocItems.map((item, i) => (
                 <li key={i}>
                   <button
                     onClick={() => navigateTo(item.href)}
-                    className="w-full text-left px-5 py-2 text-sm hover:opacity-80 transition"
+                    className="w-full text-left px-6 py-3.5 text-sm font-medium hover:bg-slate-500/5 transition-colors border-l-2 border-transparent hover:border-accent"
                     style={{ color: theme.fg }}
                   >
                     {item.label}
@@ -230,50 +222,62 @@ export default function EpubReader({
         )}
 
         {/* EPUB viewport */}
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: theme.bg }}>
+        <div className="flex-1 flex flex-col overflow-hidden relative" style={{ background: theme.bg }}>
           {loading && (
-            <div className="flex-1 flex items-center justify-center" style={{ color: theme.fg }}>
-              <div className="text-center opacity-50">
-                <p className="text-4xl mb-3">📖</p>
-                <p>Loading…</p>
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 transition-opacity duration-1000" style={{ background: theme.bg, color: theme.fg }}>
+              <div className="relative">
+                <div className="absolute inset-0 blur-2xl bg-accent/20 rounded-full animate-pulse" />
+                <Loader2 size={48} className="animate-spin text-accent relative" />
               </div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] opacity-40">Opening Scroll</p>
             </div>
           )}
-          <div ref={viewerRef} className={`flex-1 ${loading ? 'opacity-0' : 'opacity-100'}`} />
+          <div ref={viewerRef} className={`flex-1 transition-opacity duration-1000 ${loading ? 'opacity-0' : 'opacity-100'}`} />
         </div>
 
-        {/* Settings panel */}
+        {/* Settings panel overlay */}
         {showSettings && (
-          <ReaderSettingsPanel
-            prefs={prefs}
-            theme={theme}
-            onUpdate={updatePrefs}
-            onClose={() => setShowSettings(false)}
-          />
+          <div className="absolute inset-0 z-50 flex justify-end lg:pr-8 lg:pt-8 pointer-events-none">
+            <div className="w-full lg:w-96 pointer-events-auto h-fit">
+              <ReaderSettingsPanel
+                prefs={prefs}
+                theme={theme}
+                onUpdate={updatePrefs}
+                onClose={() => setShowSettings(false)}
+              />
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Bottom nav bar */}
+      {/* Bottom navigation bar */}
       <div
-        className="flex items-center justify-between px-6 py-3 border-t select-none"
+        className="flex items-center justify-between px-8 py-5 border-t select-none z-30"
         style={{ background: theme.toolbar, borderColor: theme.border }}
       >
         <button
           onClick={prevPage}
           disabled={atStart}
-          className="px-5 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 transition hover:opacity-70"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-bold disabled:opacity-20 transition-all hover:bg-slate-500/10 group"
           style={{ color: theme.fg }}
         >
-          ← Prev
+          <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+          <span>Previous</span>
         </button>
-        <span className="text-xs opacity-50" style={{ color: theme.fg }}>{progress}%</span>
+
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest opacity-30" style={{ color: theme.fg }}>Progress</span>
+          <span className="text-xs font-serif font-bold italic" style={{ color: theme.fg }}>{progress}%</span>
+        </div>
+
         <button
           onClick={nextPage}
           disabled={atEnd}
-          className="px-5 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 transition hover:opacity-70"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-bold disabled:opacity-20 transition-all hover:bg-slate-500/10 group"
           style={{ color: theme.fg }}
         >
-          Next →
+          <span>Next</span>
+          <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
     </div>
